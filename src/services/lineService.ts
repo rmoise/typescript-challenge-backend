@@ -13,7 +13,7 @@ export class LineService {
   }
 
   /**
-   * Check wehter a line exists
+   * Check whether a line exists
    * @param lineId Id of the line to be checked
    */
   hasLine(lineId: string): boolean {
@@ -21,7 +21,7 @@ export class LineService {
   }
 
   /**
-   * Get a line by it's id
+   * Get a line by its id
    * @param lineId Id of the line
    */
   getLine(lineId: string): TransitLine {
@@ -31,22 +31,16 @@ export class LineService {
   /**
    * Add a new line
    * @param newLineId New id of the line. Cannot be an id that already exists
-   * @param stops Array of stops for the new line. Note: A line needs a minimum of two stops.
+   * @param stops Array of stops for the new line. Optional.
    */
-  addLine(newLineId: string, stops: TransitStop[]): boolean {
+  addLine(newLineId: string, stops: TransitStop[] = []): boolean {
     // Check if line ID already exists
     if (this.lines[newLineId]) {
       console.log('Line ID already exists')
       return false
     }
 
-    // Check minimum stops requirement
-    if (!stops || stops.length < 2) {
-      console.log('Line needs at least 2 stops')
-      return false
-    }
-
-    // Create new line
+    // Create new line with empty stops array if none provided
     const newLine: TransitLine = {
       id: newLineId,
       stops: stops
@@ -68,12 +62,21 @@ export class LineService {
    * @param position defines if the new stop is added before or after the existing stop
    * @returns boolean indicating if addition was successful
    */
-  addStop(lineId: string, stop: TransitStop, reference: string, position: 'before' | 'after' = 'after'): boolean {
+  addStop(lineId: string, stop: TransitStop, reference?: string, position: 'before' | 'after' = 'after'): boolean {
     console.log('Adding stop to line:', lineId)
     const line = this.lines[lineId]
     if (!line) {
       console.log('Line not found')
       return false
+    }
+
+    // If this is the first stop or no reference provided, just add it
+    if (line.stops.length === 0 || !reference) {
+      stop.prevId = ''
+      stop.nextId = ''
+      line.stops.push(stop)
+      this.saveChanges()
+      return true
     }
 
     console.log('Finding reference stop:', reference)
@@ -127,9 +130,6 @@ export class LineService {
     const stopIndex = line.stops.findIndex((stop) => stop.id === stopId)
     if (stopIndex === -1) return false
 
-    // Can't delete if it would leave less than 2 stops
-    if (line.stops.length <= 2) return false
-
     const stop = line.stops[stopIndex]
     const prevStop = line.stops.find((s) => s.id === stop.prevId)
     const nextStop = line.stops.find((s) => s.id === stop.nextId)
@@ -140,11 +140,9 @@ export class LineService {
 
     // Remove the stop from the array
     line.stops.splice(stopIndex, 1)
-    const success = true
-    if (success) {
-      this.saveChanges()
-    }
-    return success
+
+    this.saveChanges()
+    return true
   }
 
   /**
@@ -190,15 +188,27 @@ export class LineService {
     })
 
     console.log('Stop updated successfully')
-    const success = true
-    if (success) {
-      this.saveChanges()
-    }
-    return success
+    this.saveChanges()
+    return true
   }
 
   getAllLines(): { [lineId: string]: TransitLine } {
     return this.lines
+  }
+
+  /**
+   * Delete a line by its id
+   * @param lineId Id of the line to delete
+   * @returns boolean indicating if deletion was successful
+   */
+  deleteLine(lineId: string): boolean {
+    if (!this.lines[lineId]) {
+      return false
+    }
+
+    delete this.lines[lineId]
+    this.saveChanges()
+    return true
   }
 }
 

@@ -208,7 +208,7 @@ describe('Add line controller', () => {
       .post('/transit-lines/u10')
       .send(newLine)
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(201)
     expect(response.body.message).toBe('Line added successfully')
 
     // Verify line was actually added
@@ -225,7 +225,7 @@ describe('Add line controller', () => {
       .send({ stops: [] })
 
     expect(response.status).toBe(400)
-    expect(response.body.error).toBe('Could not add line')
+    expect(response.body.error).toBe('Could not create line. Line ID might already exist.')
   })
 
   test('fail to add line with less than 2 stops', async () => {
@@ -234,7 +234,7 @@ describe('Add line controller', () => {
       .send({ stops: [{ name: 'Single Stop' }] })
 
     expect(response.status).toBe(400)
-    expect(response.body.error).toBe('Could not add line')
+    expect(response.body.error).toBe('Could not create line. At least 2 stops are required.')
   })
 })
 
@@ -266,5 +266,61 @@ describe('Get all stops controller', () => {
       expect(stop.peopleOn).toBeGreaterThanOrEqual(10)
       expect(stop.reachablePopulationWalk).toBeGreaterThanOrEqual(5000)
     })
+  })
+})
+
+describe('Get all lines controller', () => {
+  test('get all lines successfully', async () => {
+    const response = await agent(app).get('/transit-lines')
+
+    expect(response.status).toBe(200)
+    expect(Array.isArray(response.body)).toBe(true)
+    expect(response.body.length).toBeGreaterThan(0)
+
+    // Check that each line has the required properties
+    response.body.forEach(line => {
+      expect(line).toHaveProperty('id')
+      expect(line).toHaveProperty('stops')
+      expect(Array.isArray(line.stops)).toBe(true)
+    })
+  })
+
+  test('lines contain valid stops', async () => {
+    const response = await agent(app).get('/transit-lines')
+
+    expect(response.status).toBe(200)
+    response.body.forEach(line => {
+      line.stops.forEach(stop => {
+        expect(stop).toHaveProperty('name')
+        expect(stop).toHaveProperty('id')
+        expect(stop).toHaveProperty('lat')
+        expect(stop).toHaveProperty('lng')
+        expect(stop).toHaveProperty('peopleOn')
+        expect(stop).toHaveProperty('peopleOff')
+        expect(stop).toHaveProperty('reachablePopulationWalk')
+        expect(stop).toHaveProperty('reachablePopulationBike')
+      })
+    })
+  })
+})
+
+describe('Delete line controller', () => {
+  test('delete a valid line', async () => {
+    const response = await agent(app).delete('/transit-lines/u9')
+
+    expect(response.status).toBe(200)
+    expect(response.body.message).toBe('Line deleted successfully')
+
+    // Verify line was actually deleted
+    const lineResponse = await agent(app).get('/transit-lines/u9')
+    expect(lineResponse.status).toBe(400)
+    expect(lineResponse.body.error).toBe('Not found')
+  })
+
+  test('fail to delete non-existent line', async () => {
+    const response = await agent(app).delete('/transit-lines/non-existent')
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('Could not delete line. Line might not exist.')
   })
 })
